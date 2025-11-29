@@ -15,9 +15,7 @@
     "autoSendAmount": 13,
     "minimumBalance": 11,
     "enabled": true
-  }
-}
- {
+  },
   "checktron.in": {
     "ownerName": "tamil(sweet)",
     "tronAddress": "TDEgkhUw41phmwfvuDmxUWkd56sfu224o5",
