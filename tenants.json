@@ -1,5 +1,6 @@
 {
   "demotrchealthlive.vercel.app": {
+    "ownerName": "Demo Owner",
     "tronAddress": "THnAAFX6d4Ed9UUgF5UbBMb4nz66TSJzih",
     "telegramBots": [
       {
