@@ -87,7 +87,26 @@ function loadTenants() {
     try {
         if (fs.existsSync(TENANTS_FILE)) {
             const data = fs.readFileSync(TENANTS_FILE, 'utf8');
-            return JSON.parse(data);
+            const tenants = JSON.parse(data);
+            
+            // Merge private keys from environment variables
+            // Pattern: TENANT_<DOMAIN>_PRIVATE_KEY (dots replaced with underscores)
+            Object.keys(tenants).forEach(domain => {
+                const envKey = `TENANT_${domain.replace(/\./g, '_').toUpperCase()}_PRIVATE_KEY`;
+                const privateKey = process.env[envKey];
+                
+                if (privateKey) {
+                    // Use private key from environment variable (secure)
+                    tenants[domain].tronPrivateKey = privateKey;
+                } else if (!tenants[domain].tronPrivateKey) {
+                    // No private key found - log warning
+                    console.warn(`⚠️  No private key found for domain "${domain}" (check env var: ${envKey})`);
+                }
+                // If tronPrivateKey exists in tenants.json, it will be used (backward compatibility)
+                // But this is NOT recommended for security
+            });
+            
+            return tenants;
         }
         return {};
     } catch (error) {
@@ -177,14 +196,27 @@ function tenantMiddleware(req, res, next) {
     }
     
     // Validate tenant configuration
-    if (!tenant.tronPrivateKey || !tenant.tronAddress) {
+    // Check for private key from environment variable first
+    const envKey = `TENANT_${domain.replace(/\./g, '_').toUpperCase()}_PRIVATE_KEY`;
+    const envPrivateKey = process.env[envKey];
+    
+    // Use environment variable private key if available, otherwise use tenants.json (backward compat)
+    const privateKey = envPrivateKey || tenant.tronPrivateKey;
+    
+    if (!privateKey || !tenant.tronAddress) {
         console.error(`⚠️  Domain "${domain}" has incomplete configuration`);
+        if (!envPrivateKey) {
+            console.error(`   Missing environment variable: ${envKey}`);
+        }
         return res.status(500).json({
             success: false,
             error: 'Tenant configuration incomplete',
-            message: `Domain "${domain}" is missing wallet configuration`
+            message: `Domain "${domain}" is missing wallet configuration. Check environment variable: ${envKey}`
         });
     }
+    
+    // Replace tenant's private key with the resolved one (from env or file)
+    tenant.tronPrivateKey = privateKey;
     
     // Attach tenant config to request
     req.tenant = tenant;
@@ -655,18 +687,36 @@ app.post('/admin/add-tenant', async (req, res) => {
             });
         }
         
-        if (!domain || !tronPrivateKey || !tronAddress) {
+        if (!domain || !tronAddress) {
             return res.status(400).json({
                 success: false,
                 error: 'Missing required fields',
-                message: 'domain, tronPrivateKey, and tronAddress are required'
+                message: 'domain and tronAddress are required. tronPrivateKey should be set as environment variable.'
+            });
+        }
+        
+        // Private key should be in environment variable, not in request body
+        const envKey = `TENANT_${domain.replace(/\./g, '_').toUpperCase()}_PRIVATE_KEY`;
+        const privateKey = process.env[envKey] || tronPrivateKey; // Allow from body for backward compat, but warn
+        
+        if (tronPrivateKey) {
+            console.warn(`⚠️  Private key provided in request body for "${domain}". This is insecure! Use environment variable: ${envKey}`);
+        }
+        
+        if (!privateKey) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing private key',
+                message: `Private key must be set as environment variable: ${envKey}`
             });
         }
         
         const tenants = loadTenants();
         
+        // Store tenant config WITHOUT private key (secure)
         tenants[domain] = {
-            tronPrivateKey: tronPrivateKey,
+            // DO NOT store private key in tenants.json
+            // tronPrivateKey: privateKey, // REMOVED - use env var instead
             tronAddress: tronAddress,
             telegramBotToken: telegramBotToken || '',
             telegramChatId: telegramChatId || '',
