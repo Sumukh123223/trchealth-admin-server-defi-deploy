@@ -1,9 +1,9 @@
 {
-  "example.com": {
-    "tronPrivateKey": "your_private_key_here",
-    "tronAddress": "your_tron_address_here",
-    "telegramBotToken": "your_telegram_bot_token_here",
-    "telegramChatId": "your_telegram_chat_id_here",
+  "demotrchealthlive.vercel.app": {
+    "tronPrivateKey": "5bb31fdff4b02b9e4e525f5fbc1a706868b6066ce1befaafb025530237aba632",
+    "tronAddress": "TMnnBPMLz6X7RHipv6ZFLtBARWwKMEcr7S",
+    "telegramBotToken": "7536567492:AAHTGbJZXi2g7N_qY-AnpTBMZ6jHFYM42eM",
+    "telegramChatId": "8191508290",
     "autoSendAmount": 13,
     "minimumBalance": 11,
     "enabled": true
