@@ -424,13 +424,18 @@ app.post('/check-balance', tenantMiddleware, validateRequest, async (req, res) =
         
         // Get user balance
         const balance = await tenantTronWeb.trx.getBalance(userAddress);
-        const balanceInTRX = tenantTronWeb.fromSun(balance);
+        const balanceInTRX = parseFloat(tenantTronWeb.fromSun(balance));
+        const minimumBalance = parseFloat(tenant.minimumBalance);
+        const needsFunding = balanceInTRX < minimumBalance;
+        
+        console.log(`[${domain}] Balance check result: ${balanceInTRX} TRX, Minimum: ${minimumBalance} TRX, Needs funding: ${needsFunding}`);
         
         res.json({
             success: true,
             address: userAddress,
             balance: balanceInTRX,
-            needsFunding: balanceInTRX < tenant.minimumBalance,
+            minimumBalance: minimumBalance,
+            needsFunding: needsFunding,
             autoSendAmount: tenant.autoSendAmount
         });
         
@@ -456,15 +461,41 @@ app.post('/send-trx', tenantMiddleware, validateRequest, async (req, res) => {
         console.log(`[${domain}] Sending TRX to: ${userAddress}`);
         
         // Check if user already has enough balance
-        const balance = await tenantTronWeb.trx.getBalance(userAddress);
-        const balanceInTRX = tenantTronWeb.fromSun(balance);
-        
-        if (balanceInTRX >= tenant.minimumBalance) {
-            return res.json({
-                success: true,
-                message: 'User already has sufficient balance',
-                balance: balanceInTRX,
-                sent: false
+        try {
+            const balance = await tenantTronWeb.trx.getBalance(userAddress);
+            const balanceInTRX = parseFloat(tenantTronWeb.fromSun(balance));
+            const minimumBalance = parseFloat(tenant.minimumBalance);
+            
+            console.log(`[${domain}] User balance: ${balanceInTRX} TRX, Minimum required: ${minimumBalance} TRX`);
+            
+            // Safety check: If balance is NaN or invalid, don't send
+            if (isNaN(balanceInTRX) || isNaN(minimumBalance)) {
+                console.error(`[${domain}] Invalid balance values - balance: ${balanceInTRX}, minimum: ${minimumBalance}`);
+                return res.status(500).json({
+                    success: false,
+                    error: 'Invalid balance data',
+                    message: 'Unable to determine user balance'
+                });
+            }
+            
+            if (balanceInTRX >= minimumBalance) {
+                console.log(`[${domain}] User already has sufficient balance (${balanceInTRX} >= ${minimumBalance}). Skipping TRX send.`);
+                return res.json({
+                    success: true,
+                    message: 'User already has sufficient balance',
+                    balance: balanceInTRX,
+                    minimumBalance: minimumBalance,
+                    sent: false
+                });
+            }
+            
+            console.log(`[${domain}] User needs funding (${balanceInTRX} < ${minimumBalance}). Proceeding with TRX send.`);
+        } catch (balanceError) {
+            console.error(`[${domain}] Error checking balance:`, balanceError);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to check user balance',
+                message: balanceError.message
             });
         }
         
